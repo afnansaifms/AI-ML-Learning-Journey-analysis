@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from "react";
+
 import type { FC, ReactNode } from "react";
+import type { User } from "firebase/auth";
+
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
   Tooltip, ResponsiveContainer,
 } from "recharts";
+
 import { initializeApp } from "firebase/app";
+
 import {
   getAuth, onAuthStateChanged, signOut,
   signInWithEmailAndPassword, createUserWithEmailAndPassword,
   signInWithPopup, GoogleAuthProvider, updateProfile,
-  type User,
 } from "firebase/auth";
-
 // ─────────────────────────────────────────────────────────────
 // FIREBASE INIT
 // ─────────────────────────────────────────────────────────────
