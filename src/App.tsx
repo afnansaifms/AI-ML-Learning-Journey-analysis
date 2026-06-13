@@ -42,10 +42,6 @@ interface WeekTask {
   subtopic: string; hrs: string; video: string; url: string;
   checkpoint: string; isProject: boolean;
 }
-interface Video {
-  id: string; wk: number; phase: number;
-  title: string; url: string; duration: string;
-}
 interface Interview {
   id: number; company: string; role: string;
   date: string; stage: string; notes: string;
