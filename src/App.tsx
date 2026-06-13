@@ -276,18 +276,28 @@ const TH: Record<ThemeKey, Theme> = {
   },
 };
 
-// ─────────────────────────────────────────────────────────────
-// LOCAL STORAGE — keyed by Firebase uid
+// LOCAL STORAGE
+// Key = sanitised email → Google + email/password share ONE data bucket
 // ─────────────────────────────────────────────────────────────
 
-const SK = (uid: string) => `nlp_24wk_${uid}`;
+// Converts email to a safe storage key
+// e.g. "afnan@gmail.com" becomes "afnan_gmail_com"
+function getStorageId(user: User): string {
+  if (user.email) return user.email.toLowerCase().replace(/[^a-z0-9]/g, "_");
+  return user.uid; // fallback (very rare edge case)
+}
 
-function loadData(uid: string): UserData | null {
-  try { const r = localStorage.getItem(SK(uid)); return r ? JSON.parse(r) : null; }
+function loadData(id: string): UserData | null {
+  try { const r = localStorage.getItem(`nlp_24wk_${id}`); return r ? JSON.parse(r) : null; }
   catch { return null; }
 }
-function saveData(uid: string, d: UserData): void {
-  try { localStorage.setItem(SK(uid), JSON.stringify(d)); } catch {}
+function saveData(id: string, d: UserData): void {
+  try { localStorage.setItem(`nlp_24wk_${id}`, JSON.stringify(d)); } catch {}
+}
+// Reads old UID-based data (used once for migration, then never again)
+function loadDataByUID(uid: string): UserData | null {
+  try { const r = localStorage.getItem(`nlp_24wk_${uid}`); return r ? JSON.parse(r) : null; }
+  catch { return null; }
 }
 function mkDefault(): UserData {
   const tasks: Record<string,TaskState> = {};
@@ -1124,8 +1134,29 @@ export default function App() {
       setFbUser(user);
       setAuthDone(true);
       if(user){
-        let d = loadData(user.uid);
-        if(!d){ d=mkDefault(); saveData(user.uid,d); }
+        // Step 1: get the email-based key for this user
+        const sid = getStorageId(user);
+
+        // Step 2: try loading data from new email-based key
+        let d = loadData(sid);
+
+        if(!d){
+          // Step 3: check if old UID-based data exists (migration)
+          const oldData = loadDataByUID(user.uid);
+          if(oldData){
+            // Found old data! Copy it to the new email key
+            d = oldData;
+            saveData(sid, d);
+            // Delete the old UID key so we don't get confused later
+            localStorage.removeItem(`nlp_24wk_${user.uid}`);
+            console.log("✅ Migrated your progress to new storage key");
+          } else {
+            // Brand new user — start fresh
+            d = mkDefault();
+            saveData(sid, d);
+          }
+        }
+
         setDark(d.theme!=="light");
         setData(d);
       } else {
@@ -1139,12 +1170,12 @@ export default function App() {
     if(!data||!fbUser) return;
     const nd={...data,...patch};
     setData(nd);
-    saveData(fbUser.uid, nd);
+    saveData(getStorageId(fbUser), nd);
   };
 
   const toggleTheme = () => {
     const nd=!dark; setDark(nd);
-    if(data&&fbUser) saveData(fbUser.uid,{...data,theme:nd?"dark":"light"});
+    if(data&&fbUser) saveData(getStorageId(fbUser),{...data,theme:nd?"dark":"light"});
   };
 
   const logout = async () => {
